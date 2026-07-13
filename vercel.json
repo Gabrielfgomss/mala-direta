@@ -2,13 +2,5 @@
   "buildCommand": "npm run build",
   "devCommand": "npm run dev",
   "installCommand": "npm install",
-  "framework": "vite",
-  "functions": {
-    "api/**/*.ts": {
-      "runtime": "nodejs20.x"
-    }
-  },
-  "env": {
-    "VERCEL_ENV": "production"
-  }
+  "framework": "vite"
 }
