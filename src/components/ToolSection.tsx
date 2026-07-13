@@ -9,7 +9,7 @@ import ExcelInput from './ExcelInput'
 import GenerateButton from './GenerateButton'
 import FeedbackModal from './FeedbackModal'
 import ProgressBar from './ProgressBar'
-import { gerarZip, gerarZipDocx, gerarZipPdf, gerarZipBoth, gerarPdfComVercel, extrairCampos } from '../lib/gerador'
+import { gerarZip, gerarZipDocx, gerarZipPdf, gerarZipBoth, extrairCampos } from '../lib/gerador'
 
 export default function ToolSection() {
   const [template, setTemplate] = useState('')
@@ -60,7 +60,7 @@ export default function ToolSection() {
         if (formato === 'docx') {
           await gerarZipDocx(valoresTabela, docxArrayBuffer, setProgress)
         } else if (formato === 'pdf') {
-          await gerarPdfComVercel(valoresTabela, docxArrayBuffer, setProgress)
+          await gerarZipPdf(valoresTabela, docxArrayBuffer, setProgress)
         } else if (formato === 'ambos') {
           await gerarZipBoth(valoresTabela, docxArrayBuffer, setProgress)
         }

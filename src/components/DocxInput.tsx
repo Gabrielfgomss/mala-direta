@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import PizZip from 'pizzip';
 import Docxtemplater from 'docxtemplater';
-import { extrairCampos } from '../lib/gerador';
 
 interface DocxInputProps {
   onFileLoaded: (arrayBuffer: ArrayBuffer) => void;
@@ -21,9 +20,9 @@ export default function DocxInput({ onFileLoaded, campos = [] }: DocxInputProps)
       try {
         const arrayBuffer = event.target?.result as ArrayBuffer;
 
-        // Validar que é um arquivo .docx válido
+        // Validar que é um arquivo .docx válido (lança erro se não for)
         const zip = new PizZip(arrayBuffer);
-        const doc = new Docxtemplater(zip, {
+        new Docxtemplater(zip, {
           paragraphLoop: true,
           linebreaks: true,
           syntax: {

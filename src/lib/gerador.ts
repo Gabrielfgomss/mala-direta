@@ -1,9 +1,6 @@
 import JSZip from 'jszip';
 import PizZip from 'pizzip';
 import Docxtemplater from 'docxtemplater';
-import mammoth from 'mammoth';
-// @ts-ignore
-import html2pdf from 'html2pdf.js';
 
 function substituirCampos(template: string, campos: Record<string, string>): string {
     let resultado = template;
@@ -13,22 +10,43 @@ function substituirCampos(template: string, campos: Record<string, string>): str
     return resultado;
 }
 
-async function gerarZip(linhas: string[], template: string, onProgress?: (progress: number) => void): Promise<void> {
-    const zip = new JSZip();
-
-    linhas.forEach((linha, index) => {
-        const [nome, cpf, processo] = linha.split('|').map(v => v.trim());
-        const campos = { nome, cpf, processo };
-        const documento = substituirCampos(template, campos);
-        const nomeArquivo = `documento_${index + 1}.txt`;
-        zip.file(nomeArquivo, documento);
-
-        if (onProgress) {
-            const progress = Math.round(((index + 1) / linhas.length) * 100);
-            onProgress(progress);
+// Preenche o template .docx com os valores de uma linha e devolve o .docx como Blob.
+function renderizarDocx(arrayBuffer: ArrayBuffer, linha: Record<string, string>): Blob {
+    const zip = new PizZip(arrayBuffer);
+    const doc = new Docxtemplater(zip, {
+        paragraphLoop: true,
+        linebreaks: true,
+        delimiters: { start: '{{', end: '}}' },
+        nullGetter: () => '',
+        syntax: {
+            allowUnopenedTag: true,
+            allowUnclosedTag: true
         }
     });
 
+    doc.render(linha);
+    return doc.getZip().generate({ type: 'blob' });
+}
+
+// Converte um .docx (Blob) em PDF chamando a Vercel Function (LibreOffice headless).
+async function converterDocxParaPdf(docxBlob: Blob): Promise<Blob> {
+    const response = await fetch('/api/convert-docx-to-pdf', {
+        method: 'POST',
+        body: await docxBlob.arrayBuffer(),
+        headers: {
+            'Content-Type': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+        }
+    });
+
+    if (!response.ok) {
+        throw new Error(`Falha ao converter para PDF: ${response.statusText}`);
+    }
+
+    return response.blob();
+}
+
+// Dispara o download de um Blob ZIP no navegador.
+async function baixarZip(zip: JSZip): Promise<void> {
     const blob = await zip.generateAsync({ type: 'blob' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
@@ -36,6 +54,23 @@ async function gerarZip(linhas: string[], template: string, onProgress?: (progre
     link.download = 'mala-direta.zip';
     link.click();
     URL.revokeObjectURL(url);
+}
+
+async function gerarZip(linhas: string[], template: string, onProgress?: (progress: number) => void): Promise<void> {
+    const zip = new JSZip();
+
+    linhas.forEach((linha, index) => {
+        const [nome, cpf, processo] = linha.split('|').map(v => v.trim());
+        const campos = { nome, cpf, processo };
+        const documento = substituirCampos(template, campos);
+        zip.file(`documento_${index + 1}.txt`, documento);
+
+        if (onProgress) {
+            onProgress(Math.round(((index + 1) / linhas.length) * 100));
+        }
+    });
+
+    await baixarZip(zip);
 }
 
 function extrairCampos(texto: string): string[] {
@@ -51,234 +86,63 @@ function extrairCampos(texto: string): string[] {
 }
 
 async function gerarZipDocx(
-  linhas: Record<string, string>[],
-  arrayBuffer: ArrayBuffer,
-  onProgress?: (progress: number) => void
+    linhas: Record<string, string>[],
+    arrayBuffer: ArrayBuffer,
+    onProgress?: (progress: number) => void
 ): Promise<void> {
-  const zipSaida = new JSZip();
+    const zipSaida = new JSZip();
 
-  linhas.forEach((linha, index) => {
-    const zip = new PizZip(arrayBuffer);
-    const doc = new Docxtemplater(zip, {
-      paragraphLoop: true,
-      linebreaks: true,
-      delimiters: {
-        start: '{{',
-        end: '}}'
-      },
-      nullGetter: () => '',
-      syntax: {
-        allowUnopenedTag: true,
-        allowUnclosedTag: true
-      }
+    linhas.forEach((linha, index) => {
+        zipSaida.file(`documento_${index + 1}.docx`, renderizarDocx(arrayBuffer, linha));
+
+        if (onProgress) {
+            onProgress(Math.round(((index + 1) / linhas.length) * 100));
+        }
     });
 
-    doc.render(linha);
-    const docZip = doc.getZip();
-    const blob = docZip.generate({ type: 'blob' });
-    zipSaida.file(`documento_${index + 1}.docx`, blob);
-
-    if (onProgress) {
-      const progress = Math.round(((index + 1) / linhas.length) * 100);
-      onProgress(progress);
-    }
-  });
-
-  const blob = await zipSaida.generateAsync({ type: 'blob' });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement('a');
-  link.href = url;
-  link.download = 'mala-direta.zip';
-  link.click();
-  URL.revokeObjectURL(url);
+    await baixarZip(zipSaida);
 }
 
 async function gerarZipPdf(
-  linhas: Record<string, string>[],
-  arrayBuffer: ArrayBuffer,
-  onProgress?: (progress: number) => void
+    linhas: Record<string, string>[],
+    arrayBuffer: ArrayBuffer,
+    onProgress?: (progress: number) => void
 ): Promise<void> {
-  const zipSaida = new JSZip();
+    const zipSaida = new JSZip();
 
-  for (let index = 0; index < linhas.length; index++) {
-    const linha = linhas[index];
-    const zip = new PizZip(arrayBuffer);
-    const doc = new Docxtemplater(zip, {
-      paragraphLoop: true,
-      linebreaks: true,
-      delimiters: {
-        start: '{{',
-        end: '}}'
-      },
-      nullGetter: () => '',
-      syntax: {
-        allowUnopenedTag: true,
-        allowUnclosedTag: true
-      }
-    });
+    for (let index = 0; index < linhas.length; index++) {
+        const docxBlob = renderizarDocx(arrayBuffer, linhas[index]);
+        const pdfBlob = await converterDocxParaPdf(docxBlob);
+        zipSaida.file(`documento_${index + 1}.pdf`, pdfBlob);
 
-    doc.render(linha);
-    const docxBlob = doc.getZip().generate({ type: 'blob' });
-
-    // Converter DOCX para HTML usando Mammoth
-    const htmlResult = await mammoth.convertToHtml({ arrayBuffer: await docxBlob.arrayBuffer() });
-    const html = htmlResult.value;
-
-    // Converter HTML para PDF usando html2pdf
-    const element = document.createElement('div');
-    element.innerHTML = html;
-    element.style.padding = '20px';
-    element.style.fontFamily = 'Arial, sans-serif';
-
-    const opt = {
-      margin: 10,
-      filename: `documento_${index + 1}.pdf`,
-      image: { type: 'jpeg', quality: 0.98 },
-      html2canvas: { scale: 2 },
-      jsPDF: { orientation: 'portrait', unit: 'mm', format: 'a4' }
-    };
-
-    const pdfDoc = await html2pdf().set(opt).from(element).outputPdf('blob');
-    zipSaida.file(`documento_${index + 1}.pdf`, pdfDoc);
-
-    if (onProgress) {
-      const progress = Math.round(((index + 1) / linhas.length) * 100);
-      onProgress(progress);
+        if (onProgress) {
+            onProgress(Math.round(((index + 1) / linhas.length) * 100));
+        }
     }
-  }
 
-  const blob = await zipSaida.generateAsync({ type: 'blob' });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement('a');
-  link.href = url;
-  link.download = 'mala-direta.zip';
-  link.click();
-  URL.revokeObjectURL(url);
+    await baixarZip(zipSaida);
 }
 
 async function gerarZipBoth(
-  linhas: Record<string, string>[],
-  arrayBuffer: ArrayBuffer,
-  onProgress?: (progress: number) => void
+    linhas: Record<string, string>[],
+    arrayBuffer: ArrayBuffer,
+    onProgress?: (progress: number) => void
 ): Promise<void> {
-  const zipSaida = new JSZip();
+    const zipSaida = new JSZip();
 
-  for (let index = 0; index < linhas.length; index++) {
-    const linha = linhas[index];
-    const zip = new PizZip(arrayBuffer);
-    const doc = new Docxtemplater(zip, {
-      paragraphLoop: true,
-      linebreaks: true,
-      delimiters: {
-        start: '{{',
-        end: '}}'
-      },
-      nullGetter: () => '',
-      syntax: {
-        allowUnopenedTag: true,
-        allowUnclosedTag: true
-      }
-    });
+    for (let index = 0; index < linhas.length; index++) {
+        const docxBlob = renderizarDocx(arrayBuffer, linhas[index]);
+        zipSaida.file(`documento_${index + 1}.docx`, docxBlob);
 
-    doc.render(linha);
+        const pdfBlob = await converterDocxParaPdf(docxBlob);
+        zipSaida.file(`documento_${index + 1}.pdf`, pdfBlob);
 
-    // Adicionar DOCX
-    const docxBlob = doc.getZip().generate({ type: 'blob' });
-    zipSaida.file(`documento_${index + 1}.docx`, docxBlob);
-
-    // Converter DOCX para PDF
-    const htmlResult = await mammoth.convertToHtml({ arrayBuffer: await docxBlob.arrayBuffer() });
-    const html = htmlResult.value;
-
-    const element = document.createElement('div');
-    element.innerHTML = html;
-    element.style.padding = '20px';
-    element.style.fontFamily = 'Arial, sans-serif';
-
-    const opt = {
-      margin: 10,
-      filename: `documento_${index + 1}.pdf`,
-      image: { type: 'jpeg', quality: 0.98 },
-      html2canvas: { scale: 2 },
-      jsPDF: { orientation: 'portrait', unit: 'mm', format: 'a4' }
-    };
-
-    const pdfDoc = await html2pdf().set(opt).from(element).outputPdf('blob');
-    zipSaida.file(`documento_${index + 1}.pdf`, pdfDoc);
-
-    if (onProgress) {
-      const progress = Math.round(((index + 1) / linhas.length) * 100);
-      onProgress(progress);
+        if (onProgress) {
+            onProgress(Math.round(((index + 1) / linhas.length) * 100));
+        }
     }
-  }
 
-  const blob = await zipSaida.generateAsync({ type: 'blob' });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement('a');
-  link.href = url;
-  link.download = 'mala-direta.zip';
-  link.click();
-  URL.revokeObjectURL(url);
+    await baixarZip(zipSaida);
 }
 
-async function gerarPdfComVercel(
-  linhas: Record<string, string>[],
-  arrayBuffer: ArrayBuffer,
-  onProgress?: (progress: number) => void
-): Promise<void> {
-  const zipSaida = new JSZip();
-
-  for (let index = 0; index < linhas.length; index++) {
-    const linha = linhas[index];
-
-    const zip = new PizZip(arrayBuffer);
-    const doc = new Docxtemplater(zip, {
-      paragraphLoop: true,
-      linebreaks: true,
-      delimiters: {
-        start: '{{',
-        end: '}}'
-      },
-      nullGetter: () => '',
-      syntax: {
-        allowUnopenedTag: true,
-        allowUnclosedTag: true
-      }
-    });
-
-    doc.render(linha);
-    const docxBlob = doc.getZip().generate({ type: 'blob' });
-
-    const docxArrayBuffer = await docxBlob.arrayBuffer();
-
-    const response = await fetch('/api/convert-docx-to-pdf', {
-      method: 'POST',
-      body: docxArrayBuffer,
-      headers: {
-        'Content-Type': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
-      }
-    });
-
-    if (!response.ok) {
-      throw new Error(`Erro ao converter documento ${index + 1}: ${response.statusText}`);
-    }
-
-    const pdfBlob = await response.blob();
-    zipSaida.file(`documento_${index + 1}.pdf`, pdfBlob);
-
-    if (onProgress) {
-      const progress = Math.round(((index + 1) / linhas.length) * 100);
-      onProgress(progress);
-    }
-  }
-
-  const blob = await zipSaida.generateAsync({ type: 'blob' });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement('a');
-  link.href = url;
-  link.download = 'mala-direta.zip';
-  link.click();
-  URL.revokeObjectURL(url);
-}
-
-export { substituirCampos, gerarZip, gerarZipDocx, gerarZipPdf, gerarZipBoth, gerarPdfComVercel, extrairCampos }
+export { substituirCampos, gerarZip, gerarZipDocx, gerarZipPdf, gerarZipBoth, extrairCampos }
