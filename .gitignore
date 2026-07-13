@@ -1,0 +1,44 @@
+# Dependencies
+node_modules/
+package-lock.json
+yarn.lock
+
+# Build outputs
+dist/
+build/
+*.tsbuildinfo
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Testing & Screenshots
+test-*.docx
+test-*.xlsx
+user-*.docx
+user-*.xlsx
+current-page.png
+page-state.png
+*.png
+
+# Vercel
+.vercel/
+
+# MCP & Tools
+.playwright-mcp/
+claude/
+
+# Misc
+.claude/

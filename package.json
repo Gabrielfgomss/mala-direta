@@ -1,0 +1,36 @@
+{
+  "name": "mala-direta",
+  "private": true,
+  "version": "0.0.1",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@bentopdf/libreoffice-wasm": "^2.3.1",
+    "@matbee/libreoffice-converter": "^2.7.0",
+    "@nativedocuments/docx-wasm": "^2.2.13-1561490777",
+    "docxtemplater": "^3.68.7",
+    "html2pdf.js": "^0.14.0",
+    "jspdf": "^4.2.1",
+    "jszip": "^3.10.1",
+    "mammoth": "^1.12.0",
+    "pizzip": "^3.2.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "xlsx": "^0.18.5"
+  },
+  "devDependencies": {
+    "@shadcn/ui": "^0.0.4",
+    "@types/react": "^18.3.3",
+    "@types/react-dom": "^18.3.0",
+    "@vitejs/plugin-react": "^4.2.1",
+    "autoprefixer": "^10.4.18",
+    "postcss": "^8.4.35",
+    "tailwindcss": "^3.4.1",
+    "typescript": "^5.4.5",
+    "vite": "^5.0.11"
+  }
+}

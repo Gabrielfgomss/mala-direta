@@ -1,0 +1,13 @@
+import { jsxs as _jsxs, jsx as _jsx } from "react/jsx-runtime";
+import { useState } from 'react';
+const ITEMS_PER_PAGE = 10;
+export default function PaginatedValuesList({ dados, campos }) {
+    const [currentPage, setCurrentPage] = useState(1);
+    const totalPages = Math.ceil(dados.length / ITEMS_PER_PAGE);
+    const startIdx = (currentPage - 1) * ITEMS_PER_PAGE;
+    const endIdx = startIdx + ITEMS_PER_PAGE;
+    const currentData = dados.slice(startIdx, endIdx);
+    return (_jsxs("div", { className: "mt-4 pt-4 border-t border-border", children: [_jsx("div", { className: "flex items-center justify-between mb-3", children: _jsxs("p", { className: "text-12px font-500 text-muted", children: ["Mostrando ", startIdx + 1, " a ", Math.min(endIdx, dados.length), " de ", dados.length, " linhas"] }) }), _jsx("div", { className: "overflow-x-auto border border-border rounded-sm bg-card-bg mb-3", children: _jsxs("table", { className: "w-full text-12px", children: [_jsx("thead", { children: _jsx("tr", { className: "bg-input border-b border-border", children: campos.map((campo) => (_jsx("th", { className: "px-3 py-2 text-left font-600 text-fg", children: campo }, campo))) }) }), _jsx("tbody", { children: currentData.map((row, rowIdx) => (_jsx("tr", { className: "border-b border-border hover:bg-input", children: campos.map((campo) => (_jsx("td", { className: "px-3 py-1 text-fg truncate", children: row[campo] || '-' }, `${startIdx + rowIdx}-${campo}`))) }, startIdx + rowIdx))) })] }) }), totalPages > 1 && (_jsxs("div", { className: "flex items-center justify-center gap-2", children: [_jsx("button", { type: "button", onClick: () => setCurrentPage(Math.max(1, currentPage - 1)), disabled: currentPage === 1, className: "px-3 py-1 border border-border rounded-sm text-12px font-500 text-fg hover:bg-input disabled:opacity-30 transition-colors", children: "\u2190 Anterior" }), _jsx("div", { className: "flex items-center gap-1", children: Array.from({ length: totalPages }, (_, i) => (_jsx("button", { type: "button", onClick: () => setCurrentPage(i + 1), className: `px-2 py-1 rounded-sm text-12px font-500 transition-colors ${currentPage === i + 1
+                                ? 'bg-fg text-card-bg'
+                                : 'border border-border text-fg hover:bg-input'}`, children: i + 1 }, i + 1))) }), _jsx("button", { type: "button", onClick: () => setCurrentPage(Math.min(totalPages, currentPage + 1)), disabled: currentPage === totalPages, className: "px-3 py-1 border border-border rounded-sm text-12px font-500 text-fg hover:bg-input disabled:opacity-30 transition-colors", children: "Pr\u00F3xima \u2192" })] }))] }));
+}
